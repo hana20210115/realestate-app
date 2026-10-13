@@ -12,23 +12,21 @@ class ReviewService
     {
         $shop = Shop::findOrFail($data['shop_id']);
         
-        // 1. 店舗の評価項目（DB）と送信された点数（フロント）を結合
-        $elements = $shop->review_elements;
-        $scores = $data['scores'];
+        
+        $scores = $data['scores'] ?? [];
 
-        // DBの項目数と送信された点数の数が合わない場合はエラー
-        if (count($elements) !== count($scores)) {
-            abort(400, '評価項目の数が一致しません。');
+        if (empty($scores)) {
+            abort(400, '最低1つは評価項目を選択してください。');
         }
 
-        $evaluationText = collect($elements)
-            ->combine($scores)
-            ->map(fn($score, $element) => "・{$element}：{$score}点")
+        // scores の中身を展開してプロンプトにする
+        $evaluationText = collect($scores)
+            ->map(fn($item) => "・{$item['name']}：{$item['score']}点")
             ->implode("\n");
 
         // 2. Gemini APIへ送るプロンプトの作成
         $prompt = <<<EOT
-あなたは「{$shop->shop_name}」を訪問したお客様です。
+あなたは不動産仲介店舗「{$shop->shop_name}」を訪問し、お部屋探しをしたお客様です。
 以下のアンケート評価に基づいて、Googleマップに投稿する自然な口コミを作成してください。
 
 【評価項目と点数（5点満点）】
@@ -40,11 +38,19 @@ class ReviewService
 ・スマホで読みやすい文字数（200文字程度）にすること。
 EOT;
 
-
         $apiKey = env('GEMINI_API_KEY');
+
+$apiKey = env('GEMINI_API_KEY');
+
+        // 安全対策: APIキーが空っぽの場合はここで止める
+        if (empty($apiKey)) {
+            abort(500, 'エラー: APIキーが空っぽです!Laravelが.envを読み込めていません。');
+        }
+
         $response = Http::withHeaders([
             'Content-Type' => 'application/json',
-        ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={$apiKey}", [
+
+        ])->post("https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=" . trim($apiKey), [
             'contents' => [
                 ['parts' => [['text' => $prompt]]]
             ]
@@ -52,12 +58,11 @@ EOT;
 
         // APIエラー時の処理
         if ($response->failed()) {
-            abort(500, 'AIの口コミ生成に失敗しました。');
+            abort(500, 'Geminiエラー詳細: ' . $response->body());
         }
 
         $generatedText = $response->json('candidates.0.content.parts.0.text');
 
-        // 4. 生成されたテキストをDBに保存
         return Review::create([
             'shop_id' => $data['shop_id'],
             'lottery_result_id' => $data['lottery_result_id'],

@@ -14,10 +14,11 @@ class GenerateReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'shop_id' => 'required|exists:shops,id',
-            'lottery_result_id' => 'required|exists:lottery_results,id',
-            'scores' => 'required|array',
-            'scores.*' => 'required|integer|min:1|max:5', // 配列の中身は1〜5のみ
+            'shop_id' => 'required|integer',
+            'lottery_result_id' => 'required|integer',
+            'scores' => 'required|array|min:1',
+            'scores.*.name' => 'required|string',
+            'scores.*.score' => 'required|integer|min:1|max:5'
         ];
     }
 }
