@@ -31,3 +31,32 @@ Route::post('/reviews', function (\Illuminate\Http\Request $request) {
         'received_data' => $request->all() // Reactから送られてきた荷物の中身
     ], 200);
 });
+
+// ▼ 追加：AI口コミ生成用の窓口（仮のAIとして動作します）
+Route::post('/generate-review', function (\Illuminate\Http\Request $request) {
+    $scores = $request->input('scores', []);
+    
+    // ※後日、ここにChatGPT APIを呼び出す処理を書きます！
+    // 今回はテストとして、星の点数を元にプログラムで簡単な文章を組み立てます
+    $text = "先日こちらの店舗を利用させていただきました。\n";
+    $hasGoodPoint = false;
+
+    foreach($scores as $item) {
+        if($item['score'] >= 4) {
+            $text .= "特に「{$item['name']}」が素晴らしく、とても満足しています！\n";
+            $hasGoodPoint = true;
+        } elseif ($item['score'] > 0) {
+            $text .= "「{$item['name']}」についても良かったです。\n";
+        }
+    }
+
+    if (!$hasGoodPoint) {
+        $text .= "全体的にスムーズな対応をしていただけました。\n";
+    }
+    
+    $text .= "また機会があればぜひ利用したいと思います。ありがとうございました！";
+
+    return response()->json([
+        'generated_text' => $text
+    ], 200);
+});

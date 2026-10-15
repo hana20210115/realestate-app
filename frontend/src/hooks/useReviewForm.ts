@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react';
-import { fetchReviewElements } from '../api/shopApi';
+// さっき追加した generateAIReview をインポートに追加
+import { fetchReviewElements, generateAIReview } from '../api/shopApi';
 
 export const useReviewForm = (shopId: number) => {
     const [reviewElements, setReviewElements] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [scores, setScores] = useState<{ [key: number]: number }>({});
-    
-    // ★追加：どの項目にチェックが入っているかを記憶するメモ帳（例: { 1: true, 2: false }）
     const [selectedElements, setSelectedElements] = useState<{ [key: number]: boolean }>({});
+    
+    // ★追加：生成されたAIの文章と、生成中（ローディング）状態を管理するメモ帳
+    const [generatedText, setGeneratedText] = useState<string | null>(null);
+    const [isGenerating, setIsGenerating] = useState(false);
 
     useEffect(() => {
         const loadData = async () => {
@@ -15,7 +18,7 @@ export const useReviewForm = (shopId: number) => {
                 const data = await fetchReviewElements(shopId);
                 setReviewElements(data);
             } catch (error) {
-                console.error("データの取得に失敗しました", error);
+                console.error("データ取得失敗", error);
             } finally {
                 setIsLoading(false);
             }
@@ -27,34 +30,53 @@ export const useReviewForm = (shopId: number) => {
         setScores(prev => ({ ...prev, [elementId]: score }));
     };
 
-    // ★追加：チェックボックスを押した時にON/OFFを切り替えるペン
     const handleToggleElement = (elementId: number) => {
         setSelectedElements(prev => ({
             ...prev,
-            [elementId]: !prev[elementId] // 今の状態の逆（trueならfalse）にする
+            [elementId]: !prev[elementId]
         }));
     };
 
-    // ★追加：ルートA（AIで口コミを作成する）ボタンの処理
+    // ★大改造：AIで口コミを作成する処理
     const handleAIGenerate = async () => {
-        // ※AI機能は次で作るため、今はアラートだけ出します
-        alert("ここにAI口コミ生成機能を実装します！\n選択された星の数：" + JSON.stringify(scores));
+        setIsGenerating(true);
+        try {
+            // チェックされた項目だけのデータを作る
+            const formattedScores = reviewElements
+                .filter(el => selectedElements[el.id])
+                .map(el => ({
+                    name: el.name,
+                    score: scores[el.id] || 0
+                }));
+
+            // Laravelの窓口に送信！
+            const response = await generateAIReview({ scores: formattedScores });
+            
+            // 返ってきた文章をメモ帳（State）に保存して画面を切り替える
+            setGeneratedText(response.generated_text);
+        } catch (error) {
+            console.error("AI生成エラー", error);
+            alert("文章の生成に失敗しました。");
+        } finally {
+            setIsGenerating(false);
+        }
     };
 
-    // ★追加：ルートB（自分で直接書く）スキップボタンの処理
     const handleSkipToGoogle = () => {
-        // ※Google遷移とDB保存（トラッキング）も後で作るため、今はアラートだけ出します
-        alert("裏側でクリックログをDBに保存し、各店舗のGoogleビジネスプロフィールへ遷移させます！");
+        alert("裏側でクリックログをDBに保存し、Googleへ遷移します！");
     };
 
     return {
         reviewElements,
         isLoading,
         scores,
-        selectedElements,     // 追加
+        selectedElements,
+        generatedText,      // 追加
+        isGenerating,       // 追加
+        setGeneratedText,   // 追加（手直し用）
         handleRatingChange,
-        handleToggleElement,  // 追加
-        handleAIGenerate,     // 追加
-        handleSkipToGoogle    // 追加
+        handleToggleElement,
+        handleAIGenerate,
+        handleSkipToGoogle
     };
 };
