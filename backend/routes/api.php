@@ -22,3 +22,12 @@ Route::get('/shops/{shop}/review-elements', function () {
         ['id' => 3, 'name' => '物件の提案力'],
     ]);
 });
+
+// ▼ ここから追加：Reactからの口コミデータ(POST)を受け取る窓口
+Route::post('/reviews', function (\Illuminate\Http\Request $request) {
+    // ひとまずデータベース保存は置いておき、「無事に受け取ったよ！」という成功のサインをReactに返します
+    return response()->json([
+        'message' => 'データ受信成功！',
+        'received_data' => $request->all() // Reactから送られてきた荷物の中身
+    ], 200);
+});
