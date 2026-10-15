@@ -1,25 +1,25 @@
-import React, { useState } from 'react';
+import React from 'react';
 
-// ① 親から受け取るデータ（Props）のルール決め
+// 親から受け取るルールの契約書を更新
 type StarRatingProps = {
     elementId: number;
+    currentScore: number; // 親のメモ帳に書かれている「今の点数」
+    onChange: (elementId: number, score: number) => void; // 親から渡された「書き込み用のペン」
 };
 
-// ② 星評価コンポーネント本体
-const StarRating = ({ elementId }: StarRatingProps) => {
-    // ③ 何個の星が押されたかを記憶するメモ帳（State）
-    const [rating, setRating] = useState(0);
+const StarRating = ({ elementId, currentScore, onChange }: StarRatingProps) => {
+    // ※子ども自身のメモ帳（useState）は親に渡したので削除しました
 
     return (
         <div className="flex space-x-2 mt-2">
-            {/* 1から5までの数字をループさせて、星を5つ作る */}
             {[1, 2, 3, 4, 5].map((star) => (
                 <button
                     key={star}
                     type="button"
-                    onClick={() => setRating(star)}
+                    // クリックされたら、親のペン（onChange）を使って親のメモ帳に点数を書き込む
+                    onClick={() => onChange(elementId, star)}
                     className={`text-4xl transition-colors duration-200 ${
-                        star <= rating ? 'text-yellow-400' : 'text-gray-300'
+                        star <= currentScore ? 'text-yellow-400' : 'text-gray-300'
                     }`}
                 >
                     ★

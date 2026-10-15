@@ -1,9 +1,10 @@
 import React from 'react';
 import { useReviewForm } from '../hooks/useReviewForm';
-import StarRating from '../components/StarRating'; // 星コンポーネントを読み込み
+import StarRating from '../components/StarRating';
 
 const ReviewForm = () => {
-    const { reviewElements, isLoading } = useReviewForm(1);
+    // ロジックから追加した「メモ帳」「ペン」「送信スイッチ」を受け取る
+    const { reviewElements, isLoading, scores, handleRatingChange, handleSubmit } = useReviewForm(1);
 
     if (isLoading) {
         return (
@@ -23,15 +24,23 @@ const ReviewForm = () => {
                         <li key={element.id} className="bg-gray-50 p-4 rounded border border-gray-200">
                             <p className="font-bold text-gray-700">{element.name}</p>
                             
-                            {/* ここに星評価コンポーネントを配置！ */}
-                            <StarRating elementId={element.id} />
+                            {/* 子どもの星部品に、親のメモ帳の点数と、書き込みペンを渡す */}
+                            <StarRating 
+                                elementId={element.id} 
+                                currentScore={scores[element.id] || 0} 
+                                onChange={handleRatingChange} 
+                            />
                             
                         </li>
                     ))}
                 </ul>
             </div>
 
-            <button className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg shadow hover:bg-blue-700">
+            {/* 送信ボタンに handleSubmit（送信処理）をセット！ */}
+            <button 
+                onClick={handleSubmit}
+                className="w-full bg-blue-600 text-white font-bold py-3 rounded-lg shadow hover:bg-blue-700"
+            >
                 送信する
             </button>
         </div>
