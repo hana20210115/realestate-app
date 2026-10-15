@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
-// ① さっき作った submitReview（データ送信用の関数）も読み込みます
-import { fetchReviewElements, submitReview } from '../api/shopApi';
+import { fetchReviewElements } from '../api/shopApi';
 
 export const useReviewForm = (shopId: number) => {
     const [reviewElements, setReviewElements] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-
-    // ② 親が持つ新しいメモ帳：お客さんがつけた点数を記憶します（例: { 1: 5, 2: 3 }）
     const [scores, setScores] = useState<{ [key: number]: number }>({});
+    
+    // ★追加：どの項目にチェックが入っているかを記憶するメモ帳（例: { 1: true, 2: false }）
+    const [selectedElements, setSelectedElements] = useState<{ [key: number]: boolean }>({});
 
     useEffect(() => {
         const loadData = async () => {
@@ -23,44 +23,38 @@ export const useReviewForm = (shopId: number) => {
         loadData();
     }, [shopId]);
 
-    // ③ 子ども（星部品）に渡す「書き込み用のペン（関数）」
     const handleRatingChange = (elementId: number, score: number) => {
-        // 「今までの点数データに、新しい項目と点数を合体させて保存して！」という処理
         setScores(prev => ({ ...prev, [elementId]: score }));
     };
 
-    // ④ 「送信する」ボタンが押された時の処理
-    const handleSubmit = async () => {
-        try {
-            // Laravelのバリデーションルールに合わせてデータを綺麗な形に整える
-            const formattedScores = reviewElements.map(element => ({
-                name: element.name,
-                score: scores[element.id] || 0 // まだ押されていなければ0点にする
-            }));
-
-            // 送信用の荷物をまとめる
-            const reviewData = {
-                shop_id: shopId,
-                lottery_result_id: 1, // テスト用として一旦1番を入れます
-                scores: formattedScores
-            };
-
-            // shopApi.tsの関数を使ってLaravelへPOST送信！
-            await submitReview(reviewData);
-            alert("口コミの送信が完了しました！");
-            
-        } catch (error) {
-            console.error("送信エラー", error);
-            alert("送信に失敗しました。");
-        }
+    // ★追加：チェックボックスを押した時にON/OFFを切り替えるペン
+    const handleToggleElement = (elementId: number) => {
+        setSelectedElements(prev => ({
+            ...prev,
+            [elementId]: !prev[elementId] // 今の状態の逆（trueならfalse）にする
+        }));
     };
 
-    // 画面側（View）に渡すものを追加
+    // ★追加：ルートA（AIで口コミを作成する）ボタンの処理
+    const handleAIGenerate = async () => {
+        // ※AI機能は次で作るため、今はアラートだけ出します
+        alert("ここにAI口コミ生成機能を実装します！\n選択された星の数：" + JSON.stringify(scores));
+    };
+
+    // ★追加：ルートB（自分で直接書く）スキップボタンの処理
+    const handleSkipToGoogle = () => {
+        // ※Google遷移とDB保存（トラッキング）も後で作るため、今はアラートだけ出します
+        alert("裏側でクリックログをDBに保存し、各店舗のGoogleビジネスプロフィールへ遷移させます！");
+    };
+
     return {
         reviewElements,
         isLoading,
-        scores,             // 追加：点数のメモ帳
-        handleRatingChange, // 追加：書き込み用のペン
-        handleSubmit        // 追加：送信ボタン用スイッチ
+        scores,
+        selectedElements,     // 追加
+        handleRatingChange,
+        handleToggleElement,  // 追加
+        handleAIGenerate,     // 追加
+        handleSkipToGoogle    // 追加
     };
 };
