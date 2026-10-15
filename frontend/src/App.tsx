@@ -1,23 +1,25 @@
-import React, { useState } from 'react';
+import React from 'react';
+// URLを管理するための部品をインポート
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Omikuji from './pages/Omikuji';
 import ReviewForm from './pages/ReviewForm';
 
 function App() {
-  // 今どの画面を表示しているかを記憶するメモ帳（最初は 'omikuji'）
-  const [currentScreen, setCurrentScreen] = useState<'omikuji' | 'review'>('omikuji');
-
   return (
-    <div className="min-h-screen bg-gray-100 py-10">
-      {/* メモ帳の中身が 'omikuji' ならおみくじ画面を出す */}
-      {currentScreen === 'omikuji' && (
-        <Omikuji onNext={() => setCurrentScreen('review')} />
-      )}
-
-      {/* メモ帳の中身が 'review' に変わったら口コミ画面を出す */}
-      {currentScreen === 'review' && (
-        <ReviewForm />
-      )}
-    </div>
+    <Router>
+      <div className="min-h-screen bg-gray-100 py-10">
+        <Routes>
+          {/* ① QRコードからアクセスされるおみくじ画面（:shopId に店舗の番号が入ります） */}
+          <Route path="/shops/:shopId/omikuji" element={<Omikuji />} />
+          
+          {/* ② おみくじ後に遷移する口コミ画面 */}
+          <Route path="/shops/:shopId/review" element={<ReviewForm />} />
+          
+          {/* ③ 万が一間違ったURLにアクセスされたら、とりあえず1番店舗のおみくじに飛ばす（開発用） */}
+          <Route path="*" element={<Navigate to="/shops/1/omikuji" replace />} />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 
