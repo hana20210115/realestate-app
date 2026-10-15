@@ -13,3 +13,12 @@ Route::post('/lotteries/result', [LotteryController::class, 'store']);
 
 // 3. AI口コミ文章の生成＆保存
 Route::post('/reviews/generate', [ReviewController::class, 'generate']);
+
+Route::get('/shops/{shop}/review-elements', function () {
+    // テスト用に、仮のデータ（JSON）をReactに直接返します
+    return response()->json([
+        ['id' => 1, 'name' => '接客態度'],
+        ['id' => 2, 'name' => '店舗の清潔感'],
+        ['id' => 3, 'name' => '物件の提案力'],
+    ]);
+});
