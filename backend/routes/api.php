@@ -6,6 +6,9 @@ use App\Http\Controllers\LotteryController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\TrackingController;
 
+
+Route::get('/shops', [ShopController::class, 'index']);
+
 // 1. 店舗情報の取得（店舗名や review_elements が入っています）
 Route::get('/shops/{shop}', [ShopController::class, 'show']);
 
@@ -16,3 +19,6 @@ Route::post('/lotteries/result', [LotteryController::class, 'store']);
 Route::post('/reviews/generate', [ReviewController::class, 'generate']);
 
 Route::post('/track-redirect', [TrackingController::class, 'trackRedirect']);
+
+// ★この行を追加：統計データ取得用のルート
+Route::get('/shops/{id}/analytics', [ShopController::class, 'analytics']);
