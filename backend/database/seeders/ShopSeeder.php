@@ -11,20 +11,11 @@ class ShopSeeder extends Seeder
     {
         // 店舗1: 不動産屋パターン（3項目）
         Shop::create([
-            'shop_name' => '渋谷不動産',
-            'review_elements' => ['接客・対応', '提案力・知識', 'スピード感'],
+            'shop_name' => '目黒不動産',
+            'review_elements' => ['ファミリー物件に対する知識', '〇〇大学周辺物件への知識', '目黒区エリアについての知識', '売買の知識', '接客態度', 'スピード感', '担当者の安心感'],
+            'google_review_url' => 'https://www.google.com/maps',
         ]);
 
-        // 店舗2: 飲食店パターン（4項目）
-        Shop::create([
-            'shop_name' => '新宿カフェ',
-            'review_elements' => ['料理の味', '提供スピード', '店内の雰囲気', 'コスパ'],
-        ]);
 
-        // 店舗3: 美容室パターン（3項目 - 文言違い）
-        Shop::create([
-            'shop_name' => '池袋ヘアサロン',
-            'review_elements' => ['カウンセリングの丁寧さ', '仕上がりの満足度', 'シャンプーの快適さ'],
-        ]);
     }
 }

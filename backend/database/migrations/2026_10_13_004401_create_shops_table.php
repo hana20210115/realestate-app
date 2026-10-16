@@ -6,22 +6,18 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
         Schema::create('shops', function (Blueprint $table) {
             $table->id();
             $table->string('shop_name');
-        $table->json('review_elements')->nullable(); // 店舗ごとの評価項目（JSON）
+            $table->json('review_elements')->nullable();
+            // ★この行を追加（店舗のGoogle口コミ画面へのURL）
+            $table->string('google_review_url')->nullable(); 
             $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
         Schema::dropIfExists('shops');
