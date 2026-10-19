@@ -11,12 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('lottery_results', function (Blueprint $table) {
+        Schema::create('reviews', function (Blueprint $table) {
             $table->id();
-            // shopsテーブルのidと紐付け（店舗が消えたら結果も消える設定）
             $table->foreignId('shop_id')->constrained()->cascadeOnDelete();
-            // Enumの代わりに数値で保存（1:大吉, 2:中吉, 3:小吉）
-            $table->tinyInteger('result')->comment('1:大吉, 2:中吉, 3:小吉');
+            $table->foreignId('lottery_result_id')->constrained()->cascadeOnDelete();
+            $table->text('generated_text'); // AIが生成した口コミ文章
             $table->timestamps();
         });
     }
@@ -26,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('lottery_results');
+        Schema::dropIfExists('reviews');
     }
 };

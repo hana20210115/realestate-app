@@ -1,122 +1,42 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React from 'react';
+// URLを管理するための部品をインポート
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import Omikuji from './pages/Omikuji';
+import ReviewForm from './pages/ReviewForm';
+import AdminShopList from './pages/AdminShopList';
+import ManagerShopSettings from "./pages/ManagerShopSettings";
+
+// ★追加: 管理者向け画面のインポート
+import AdminShopEdit from './pages/AdminShopEdit';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <Router>
+      <div className="min-h-screen bg-gray-100 py-10">
+        <Routes>
+          {/* ① QRコードからアクセスされるおみくじ画面（:shopId に店舗の番号が入ります） */}
+          <Route path="/shops/:shopId/omikuji" element={<Omikuji />} />
+          
+          {/* ② おみくじ後に遷移する口コミ画面 */}
+          <Route path="/shops/:shopId/review" element={<ReviewForm />} />
+          
+          {/* ★追加: 管理者用の店舗設定・評価項目編集画面 */}
+          <Route path="/admin/shops/:shopId" element={<AdminShopEdit />} />
+          {/* ★追加: 管理者用の店舗一覧画面 */}
+          <Route path="/admin/shops" element={<AdminShopList />} />
 
-      <div className="ticks"></div>
+          {/* ★追加: 管理者用の統計ダッシュボード画面 */}
+          <Route path="/admin/shops/:shopId/analytics" element={<AdminDashboard />} />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+          {/* ③ 万が一間違ったURLにアクセスされたら、とりあえず1番店舗のおみくじに飛ばす（開発用） */}
+          <Route path="*" element={<Navigate to="/shops/1/omikuji" replace />} />
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+          <Route path="/manager/shops/:shopId/settings" element={<ManagerShopSettings />} /> // ★追加
+        </Routes>
+      </div>
+    </Router>
+  );
 }
 
-export default App
+export default App;

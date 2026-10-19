@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('shops', function (Blueprint $table) {
+        Schema::create('lottery_results', function (Blueprint $table) {
             $table->id();
-            $table->string('shop_name'); // 店舗名（例：渋谷店）
+            $table->foreignId('shop_id')->constrained()->onDelete('cascade');
+            $table->integer('result'); // 1:大吉, 2:中吉, 3:小吉
+            // ★この行を直接追加する
+            $table->timestamp('redirected_to_google_at')->nullable(); 
             $table->timestamps();
         });
     }
@@ -23,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('shops');
+        Schema::dropIfExists('lottery_results');
     }
 };
