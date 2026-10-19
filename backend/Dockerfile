@@ -33,4 +33,4 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
 
 # Apacheをフォアグラウンドで起動
-CMD ["apache2-foreground"]
+CMD php artisan migrate --force --seed && apache2-foreground
