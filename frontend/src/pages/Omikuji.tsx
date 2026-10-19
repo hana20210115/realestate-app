@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { saveLotteryResult } from '../api/shopApi';
 
@@ -27,22 +27,6 @@ const Omikuji = () => {
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
 
-    // ★追加: 自動遷移のためのステート
-    const [isTransitioning, setIsTransitioning] = useState(false);
-    const [countdown, setCountdown] = useState(3);
-
-    // ★追加: 保存完了後に3秒カウントダウンして自動遷移する処理
-    useEffect(() => {
-        let timer: NodeJS.Timeout;
-        if (isTransitioning && countdown > 0) {
-            timer = setTimeout(() => setCountdown(prev => prev - 1), 1000);
-        } else if (isTransitioning && countdown === 0) {
-            // カウントが0になったら自動で遷移
-            navigate(`/shops/${shopId}/review`, { state: { lotteryResultId } });
-        }
-        return () => clearTimeout(timer);
-    }, [isTransitioning, countdown, navigate, shopId, lotteryResultId]);
-
     const saveResult = async (finalResult: OmikujiResult) => {
         setIsSaving(true);
         setSaveError(null);
@@ -53,8 +37,6 @@ const Omikuji = () => {
             });
             setLotteryResultId(res.data.id);
             setIsSaving(false);
-            // 保存成功したら自動遷移のカウントダウンを開始
-            setIsTransitioning(true);
         } catch (error) {
             console.error('おみくじ結果の保存に失敗しました', error);
             setSaveError('結果の保存に失敗しました。もう一度お試しください。');
@@ -67,8 +49,6 @@ const Omikuji = () => {
         setResult(null);
         setLotteryResultId(null);
         setSaveError(null);
-        setIsTransitioning(false);
-        setCountdown(3);
 
         let currentStep = 0;
         const totalSteps = 24;
@@ -188,28 +168,26 @@ const Omikuji = () => {
                         </div>
                     )}
 
-                    {/* ★ボタンのUIを改善：保存中・カウントダウン中・スキップ可能にする */}
-                    <button
-                        disabled={isSaving}
-                        onClick={() => {
-                            // 自動遷移を待たずに手動で進むことも可能
-                            if (lotteryResultId && !isSaving) {
-                                navigate(`/shops/${shopId}/review`, { state: { lotteryResultId } });
-                            }
-                        }}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-4 rounded-xl shadow-lg transition-all hover:scale-[1.02] text-lg mt-2 disabled:opacity-80 disabled:cursor-not-allowed disabled:hover:scale-100"
-                    >
-                        {isSaving ? (
-                            <span className="flex items-center justify-center">
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                                結果を記録中...
-                            </span>
-                        ) : isTransitioning ? (
-                            <span>次の画面へ進む（{countdown}秒）</span>
-                        ) : (
-                            <span>口コミ画面へ進む</span>
-                        )}
-                    </button>
+                    <div className="mt-8 flex justify-center">
+                        <button
+                            disabled={isSaving || !lotteryResultId}
+                            onClick={() => {
+                                if (lotteryResultId && !isSaving) {
+                                    navigate(`/shops/${shopId}/review`, { state: { lotteryResultId } });
+                                }
+                            }}
+                            className="bg-red-500 text-white font-extrabold py-4 px-8 rounded-full shadow-lg hover:bg-red-600 transition-transform transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 animate-bounce"
+                        >
+                            {isSaving ? (
+                                <span className="flex items-center justify-center text-base">
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    結果を記録中...
+                                </span>
+                            ) : (
+                                <span>口コミを投稿する！ </span>
+                            )}
+                        </button>
+                    </div>
                 </div>
             )}
 

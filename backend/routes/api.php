@@ -6,19 +6,13 @@ use App\Http\Controllers\LotteryController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\TrackingController;
 
-
+// ▼ 店舗管理関連のルート
 Route::get('/shops', [ShopController::class, 'index']);
-
-// 1. 店舗情報の取得（店舗名や review_elements が入っています）
 Route::get('/shops/{shop}', [ShopController::class, 'show']);
-
-// 2. おみくじ結果の保存
-Route::post('/lotteries/result', [LotteryController::class, 'store']);
-
-// 3. AI口コミ文章の生成＆保存（Service経由で本物のGeminiが動きます）
-Route::post('/reviews/generate', [ReviewController::class, 'generate']);
-
-Route::post('/track-redirect', [TrackingController::class, 'trackRedirect']);
-
-// ★この行を追加：統計データ取得用のルート
+Route::put('/shops/{shop}', [ShopController::class, 'update']); // ★店舗設定の更新（追加完了！）
 Route::get('/shops/{id}/analytics', [ShopController::class, 'analytics']);
+
+// ▼ お客様のアクション関連のルート
+Route::post('/lotteries/result', [LotteryController::class, 'store']);
+Route::post('/reviews/generate', [ReviewController::class, 'generate']);
+Route::post('/track-redirect', [TrackingController::class, 'trackRedirect']);
