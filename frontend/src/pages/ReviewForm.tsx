@@ -1,167 +1,267 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
-import { useReviewForm } from '../hooks/useReviewForm';
-import StarRating from '../components/StarRating';
+import { fetchShop, generateAIReview, trackGoogleRedirect } from '../api/shopApi';
 
 const ReviewForm = () => {
     const { shopId } = useParams<{ shopId: string }>();
     const location = useLocation();
+
+    // おみくじ画面から渡されたIDを取得
     const lotteryResultId = location.state?.lotteryResultId;
 
-    const { 
-        shopName, reviewElements, isLoading, scores, selectedElements, 
-        generatedText, isGenerating, setGeneratedText, 
-        handleRatingChange, handleToggleElement, handleAIGenerate, 
-        handleCopyToGoogle,
-        handleSkipToGoogle
-    } = useReviewForm(Number(shopId) || 1, lotteryResultId);
+    const [shop, setShop] = useState<any>(null);
+    const [reviewElements, setReviewElements] = useState<string[]>([]);
+    const [ratings, setRatings] = useState<Record<string, number>>({});
+    
+    const [isLoadingShop, setIsLoadingShop] = useState(true);
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generatedReview, setGeneratedReview] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
 
-    // 待機中に切り替えるメッセージ集
-    const loadingMessages = [
-        "あなたの評価をAIが分析中...",
-        "自然な言い回しを考えています🤔",
-        "良いところをピックアップ中✨",
-        "読みやすい文章に整えています...",
-        "もうすぐ完成します！"
-    ];
-    const [messageIndex, setMessageIndex] = useState(0);
-
-    // 生成中のみ2.5秒ごとにメッセージを切り替える
+    // 1. 店舗データと評価項目を取得
     useEffect(() => {
-        let interval: NodeJS.Timeout;
-        if (isGenerating) {
-            interval = setInterval(() => {
-                setMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-            }, 2500);
-        } else {
-            setMessageIndex(0);
-        }
-        return () => clearInterval(interval);
-    }, [isGenerating]);
+        const loadShop = async () => {
+            try {
+                const shopData = await fetchShop(Number(shopId));
+                setShop(shopData);
+                
+                const elements = Array.isArray(shopData.review_elements) 
+                    ? shopData.review_elements.map((el: any) => typeof el === 'string' ? el : el.name)
+                    : [];
+                
+                const finalElements = elements.length > 0 ? elements : ['総合評価'];
+                setReviewElements(finalElements);
 
-    if (isLoading) {
-        return (
-            <div translate="no" className="min-h-screen bg-gray-100 flex justify-center items-center">
-                <p className="text-gray-600 font-bold animate-pulse text-xl">
-                    <span>データを読み込み中...</span>
-                </p>
-            </div>
-        );
-    }
+                const initialRatings: Record<string, number> = {};
+                finalElements.forEach((el: string) => {
+                    initialRatings[el] = 0;
+                });
+                setRatings(initialRatings);
+            } catch (err) {
+                console.error('店舗情報の取得に失敗しました', err);
+                setError('店舗情報の読み込みに失敗しました。');
+            } finally {
+                setIsLoadingShop(false);
+            }
+        };
+        loadShop();
+    }, [shopId]);
+
+    // 2. 星をクリックした時の処理（同じ星でキャンセル）
+    const handleStarClick = (element: string, score: number) => {
+        setRatings(prev => {
+            if (prev[element] === score) {
+                return { ...prev, [element]: 0 };
+            }
+            return { ...prev, [element]: score };
+        });
+    };
+
+    const handleClear = (element: string) => {
+        setRatings(prev => ({ ...prev, [element]: 0 }));
+    };
+
+    // 3. AIに口コミ作成を依頼する処理（初回＆再生成 共通）
+    const handleSubmit = async () => {
+        const ratedItems = Object.entries(ratings).filter(([name, score]) => score > 0);
+        
+        if (ratedItems.length === 0) {
+            alert('少なくとも1つの項目には星をつけてください！🌟\n（AIを使わずに自分で書く場合は、一番下のボタンを押してください）');
+            return;
+        }
+
+        setIsGenerating(true);
+        setError(null);
+
+        try {
+            const scoresArray = ratedItems.map(([name, score]) => ({ name, score }));
+
+            const res = await generateAIReview({
+                shop_id: Number(shopId),
+                lottery_result_id: lotteryResultId || 1, // テスト用に直接開いた場合のエラーを回避
+                scores: scoresArray
+            });
+
+            const reviewText = res.generated_text || (res.data && res.data.generated_text) || res.review_text;
+            
+            if (!reviewText || typeof reviewText !== 'string') {
+                throw new Error("AIから正しい文章データが返ってきませんでした");
+            }
+            
+            setGeneratedReview(reviewText);
+        } catch (err) {
+            console.error('AIレビュー生成エラー', err);
+            setError('文章の生成に失敗しました。もう一度お試しいただくか、下のボタンから直接Googleマップへお進みください。');
+        } finally {
+            setIsGenerating(false);
+        }
+    };
+
+    // 4. AIを使わずに直接Googleへ飛ぶ処理（ダッシュボードにも記録）
+    const handleDirectGoogleRedirect = async () => {
+        try {
+            if (lotteryResultId) {
+                await trackGoogleRedirect(lotteryResultId);
+            }
+        } catch (err) {
+            console.error('リダイレクト記録エラー', err);
+        } finally {
+            const url = shop?.google_review_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop?.shop_name || 'お店')}`;
+            window.location.href = url;
+        }
+    };
+
+    // 5. AI生成後にコピーしてGoogleへ飛ぶ処理（ダッシュボードにも記録）
+    const handleGoogleRedirectWithCopy = async () => {
+        try {
+            if (lotteryResultId) {
+                await trackGoogleRedirect(lotteryResultId);
+            }
+        } catch (err) {
+            console.error('リダイレクト記録エラー', err);
+        }
+        
+        if (generatedReview) {
+            try {
+                await navigator.clipboard.writeText(generatedReview);
+                alert('口コミの文章をコピーしました！\nGoogleマップが開いたら、そのまま貼り付けて投稿してください✨');
+            } catch (err) {
+                console.error('コピー失敗', err);
+            }
+        }
+        
+        const url = shop?.google_review_url || `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(shop?.shop_name || 'お店')}`;
+        window.location.href = url;
+    };
+
+    if (isLoadingShop) return <div className="min-h-screen flex items-center justify-center font-bold text-gray-500 animate-pulse">お店のデータを読み込み中...</div>;
 
     return (
-        <div translate="no" className="max-w-md mx-auto p-6 bg-white shadow-xl rounded-2xl mt-10 transition-all">
-            
-            {generatedText ? (
-                <div key="result" className="animate-fade-in">
-                    <h2 className="text-2xl font-black text-gray-800 mb-4 text-center">
-                        <span>口コミが完成しました！</span>
-                    </h2>
-                    <p className="text-sm text-gray-500 mb-4 text-center">
-                        <span>文章は自由に手直しできます。</span>
+        <div className="max-w-md mx-auto p-4 sm:p-6 bg-white shadow-xl rounded-2xl mt-6 sm:mt-10 font-sans pb-20">
+            <h2 className="text-2xl font-black text-gray-800 mb-2 text-center">
+                {shop?.shop_name}
+            </h2>
+            {/* ★規約違反にならない自然な文言に変更 */}
+            <p className="text-sm text-gray-500 text-center mb-6 border-b pb-4">
+                サービス向上のため、アンケートにご協力をお願いいたします。
+            </p>
+
+            {error && <div className="p-4 mb-4 bg-red-50 text-red-600 font-bold rounded-xl text-sm">{error}</div>}
+
+            {/* AIが生成した口コミがまだ無い場合 */}
+            {!generatedReview ? (
+                <div>
+                    <p className="text-gray-700 font-bold mb-4 text-center">
+                        評価したい項目<span className="text-red-500">だけ</span>星をつけてください🌟
                     </p>
                     
-                    <textarea 
-                        className="w-full h-48 p-4 border-2 border-blue-200 rounded-xl focus:border-blue-500 focus:ring focus:ring-blue-200 transition-colors text-gray-700 leading-relaxed resize-none"
-                        value={generatedText}
-                        onChange={(e) => setGeneratedText(e.target.value)}
-                    />
+                    <div className="space-y-4 mb-8">
+                        {reviewElements.map((element) => (
+                            <div key={element} className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-100 flex flex-col relative">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className="font-bold text-gray-700 text-sm sm:text-base">
+                                        {element}
+                                    </span>
+                                    {(ratings[element] || 0) > 0 && (
+                                        <button
+                                            onClick={() => handleClear(element)}
+                                            className="text-xs text-red-500 font-bold bg-red-50 px-2 py-1 rounded hover:bg-red-100 transition-colors"
+                                        >
+                                            ✕ クリア
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex space-x-2 justify-center sm:justify-start">
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button
+                                            key={star}
+                                            onClick={() => handleStarClick(element, star)}
+                                            className={`text-3xl sm:text-4xl transition-all transform ${
+                                                (ratings[element] || 0) >= star 
+                                                    ? 'text-yellow-400 scale-110 drop-shadow-md' 
+                                                    : 'text-gray-300 hover:text-yellow-200'
+                                            }`}
+                                        >
+                                            ★
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
 
-                    <div className="flex flex-col space-y-3 mt-6">
-                        <button 
-                            type="button"
-                            onClick={handleCopyToGoogle}
-                            className="w-full bg-gradient-to-r from-blue-600 to-blue-800 text-white font-extrabold py-4 rounded-xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all text-lg flex items-center justify-center"
+                    <button
+                        onClick={handleSubmit}
+                        disabled={isGenerating}
+                        className="w-full bg-blue-600 text-white font-extrabold py-4 rounded-xl shadow-lg hover:bg-blue-700 transition-all text-lg active:scale-95 disabled:opacity-50"
+                    >
+                        {isGenerating ? (
+                            <span className="flex items-center justify-center">
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                AIが口コミを作成中...🤖✨
+                            </span>
+                        ) : (
+                            'AIに口コミを書いてもらう ✨'
+                        )}
+                    </button>
+                    <p className="text-xs text-center text-gray-400 mt-3 mb-6">
+                        AIが自然な文章を作成します。自分で考える必要はありません！
+                    </p>
+
+                    <div className="border-t border-gray-200 pt-6">
+                        <button
+                            onClick={handleDirectGoogleRedirect}
+                            className="w-full bg-white text-gray-600 font-bold py-4 rounded-xl border-2 border-gray-200 hover:bg-gray-50 transition-all text-sm shadow-sm"
                         >
-                            <span className="mr-2">📋</span>
-                            <span>コピーしてGoogleへ進む</span>
+                            AIを使わず、自分でGoogleマップに書く ✍️
                         </button>
-
-                        <div className="flex space-x-3">
-                            <button 
-                                type="button"
-                                onClick={handleAIGenerate}
-                                disabled={isGenerating}
-                                className="flex-1 bg-white text-blue-600 font-bold py-3 rounded-xl border-2 border-blue-200 hover:bg-blue-50 transition-all text-sm flex justify-center items-center disabled:opacity-50"
-                            >
-                                <span>{isGenerating ? '⏳ 生成中...' : '🔄 もう一度生成する'}</span>
-                            </button>
-
-                            <button 
-                                type="button"
-                                onClick={handleSkipToGoogle}
-                                className="flex-1 bg-white text-gray-500 font-bold py-3 rounded-xl border-2 border-gray-200 hover:bg-gray-50 transition-all text-sm"
-                            >
-                                <span>スキップしてGoogleで書く</span>
-                            </button>
-                        </div>
                     </div>
                 </div>
             ) : (
-                <div key="form">
-                    <h2 className="text-2xl font-black text-gray-800 mb-2 text-center">
-                        <span>{shopName ? `${shopName}の口コミ` : '口コミにご協力ください'}</span>
-                    </h2>
-                    <p className="text-sm text-gray-500 mb-6 text-center">
-                        <span>評価したい項目にチェックを入れ、</span>
-                        <br />
-                        <span>星をタップしてください。</span>
-                    </p>
-
-                    <div className="mb-8">
-                        <ul className="space-y-4">
-                            {reviewElements.map((element: any) => (
-                                <li key={element.id} className={`p-4 rounded-xl border-2 transition-all duration-300 ${selectedElements[element.id] ? 'border-blue-400 bg-blue-50' : 'border-gray-200 bg-gray-50'}`}>
-                                    <label className="flex items-center cursor-pointer">
-                                        <input 
-                                            type="checkbox" 
-                                            className="w-6 h-6 text-blue-600 rounded border-gray-300 focus:ring-blue-500 cursor-pointer"
-                                            checked={!!selectedElements[element.id]}
-                                            onChange={() => handleToggleElement(element.id)}
-                                        />
-                                        <span className="ml-3 font-bold text-gray-700 text-lg">{element.name}</span>
-                                    </label>
-                                    <div className={`overflow-hidden transition-all duration-300 ${selectedElements[element.id] ? 'max-h-20 opacity-100 mt-3' : 'max-h-0 opacity-0'}`}>
-                                        <StarRating elementId={element.id} currentScore={scores[element.id] || 0} onChange={handleRatingChange} />
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
+                /* AIが口コミを作った後の画面 */
+                <div className="animate-fade-in-up">
+                    <div className="bg-blue-50 border border-blue-200 p-5 rounded-2xl mb-6 relative">
+                        <div className="absolute -top-3 -right-3 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-md animate-bounce">
+                            AI作成完了！
+                        </div>
+                        <p className="text-gray-700 text-sm sm:text-base leading-relaxed whitespace-pre-wrap">
+                            {generatedReview}
+                        </p>
                     </div>
 
-                    <div className="space-y-4 mt-8">
-                        <button 
-                            type="button"
-                            onClick={handleAIGenerate}
+                    <button
+                        onClick={handleGoogleRedirectWithCopy}
+                        className="w-full bg-red-500 text-white font-extrabold py-4 rounded-xl shadow-lg hover:bg-red-600 transition-transform transform hover:scale-105 active:scale-95 text-lg flex items-center justify-center mb-4"
+                    >
+                        <span className="mr-2">📋</span> 文章をコピーしてGoogleへ
+                    </button>
+                    
+                    <p className="text-xs text-center text-gray-500 mb-6 font-bold">
+                        ※Googleマップが開いたら、星を選んで文章を「貼り付け」してください。
+                    </p>
+
+                    {/* ★追加: AI再生成と直接遷移のボタンエリア */}
+                    <div className="border-t border-gray-200 pt-6 space-y-3">
+                        <button
+                            onClick={handleSubmit}
                             disabled={isGenerating}
-                            className={`w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold py-4 rounded-xl shadow-lg transition-all flex flex-col items-center justify-center min-h-[64px] ${
-                                isGenerating ? 'opacity-90 cursor-not-allowed scale-100' : 'hover:shadow-xl hover:scale-[1.02]'
-                            }`}
+                            className="w-full bg-blue-50 text-blue-600 font-bold py-3 rounded-xl border border-blue-200 hover:bg-blue-100 transition-all text-sm flex items-center justify-center"
                         >
                             {isGenerating ? (
-                                <div className="flex flex-col items-center justify-center">
-                                    <div className="flex items-center space-x-2">
-                                        <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                                        <span className="text-base sm:text-lg animate-pulse">
-                                            {loadingMessages[messageIndex]}
-                                        </span>
-                                    </div>
-                                </div>
+                                <span className="flex items-center justify-center">
+                                    <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mr-2"></div>
+                                    考え直し中...
+                                </span>
                             ) : (
-                                <div className="flex items-center text-lg">
-                                    <span className="mr-2">✨</span> 
-                                    <span>AIで口コミを作成する</span>
-                                </div>
+                                '🔄 もう一度AIに作り直してもらう'
                             )}
                         </button>
-
-                        <button 
-                            type="button"
-                            onClick={handleSkipToGoogle}
-                            disabled={isGenerating}
-                            className="w-full bg-white text-gray-500 font-bold py-4 rounded-xl border-2 border-gray-300 shadow-sm hover:bg-gray-50 hover:text-gray-700 transition-all text-sm disabled:opacity-50"
+                        
+                        <button
+                            onClick={handleDirectGoogleRedirect}
+                            className="w-full bg-white text-gray-600 font-bold py-3 rounded-xl border-2 border-gray-200 hover:bg-gray-50 transition-all text-sm shadow-sm"
                         >
-                            <span>自分で直接Googleに書く（スキップ）</span>
+                            やっぱり自分で書く（直接Google口コミ画面へ） ✍️
                         </button>
                     </div>
                 </div>
