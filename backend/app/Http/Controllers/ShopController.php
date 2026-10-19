@@ -6,7 +6,7 @@ use App\Models\Shop;
 use Illuminate\Http\Request;
 use App\Http\Requests\UpdateShopRequest;
 use App\Services\AnalyticsService;
-use App\Services\ShopService;
+use App\Services\ShopService; 
 
 class ShopController extends Controller
 {
