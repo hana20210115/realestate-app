@@ -22,3 +22,8 @@ Route::get('/run-seed', function () {
     Artisan::call('migrate:fresh', ['--force' => true, '--seed' => true]);
     return 'Render本番DBへのデータ投入が完了しました！';
 });
+
+//corn-jobが10分おきに実行できるように、Renderのcron-jobでこのURLを叩く
+Route::get('/ping', function () {
+    return response('ok', 200);
+});
