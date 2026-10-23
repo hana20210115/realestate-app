@@ -17,6 +17,9 @@ const ReviewForm = () => {
     const [isGenerating, setIsGenerating] = useState(false);
     const [generatedReview, setGeneratedReview] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    
+    // ★追加：担当者名を記憶しておくための箱
+    const [staffName, setStaffName] = useState<string>('');
 
     // 1. 店舗データと評価項目を取得
     useEffect(() => {
@@ -79,7 +82,8 @@ const ReviewForm = () => {
             const res = await generateAIReview({
                 shop_id: Number(shopId),
                 lottery_result_id: lotteryResultId || 1, // テスト用に直接開いた場合のエラーを回避
-                scores: scoresArray
+                scores: scoresArray,
+                staff_name: staffName // ★追加：箱の中身をLaravelに渡す
             });
 
             const reviewText = res.generated_text || (res.data && res.data.generated_text) || res.review_text;
@@ -154,6 +158,23 @@ const ReviewForm = () => {
                     <p className="text-gray-700 font-bold mb-4 text-center">
                         評価したい項目<span className="text-red-500">だけ</span>星をつけてください🌟
                     </p>
+
+                    {/* ★追加：担当者名の入力フォーム */}
+                    <div className="bg-gray-50 p-4 rounded-xl shadow-sm border border-gray-100 mb-6">
+                        <label className="block text-gray-700 font-bold text-sm sm:text-base mb-2">
+                            担当スタッフ名（任意）
+                        </label>
+                        <input
+                            type="text"
+                            value={staffName}
+                            onChange={(e) => setStaffName(e.target.value)}
+                            placeholder=""
+                            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-gray-700"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">
+                            ※名前を入力すると、より自然で人間味のある口コミが作成されます。
+                        </p>
+                    </div>
                     
                     <div className="space-y-4 mb-8">
                         {reviewElements.map((element) => (
