@@ -18,7 +18,8 @@ class GenerateReviewRequest extends FormRequest
             'lottery_result_id' => 'required|integer',
             'scores' => 'required|array|min:1',
             'scores.*.name' => 'required|string',
-            'scores.*.score' => 'required|integer|min:1|max:5'
+            'scores.*.score' => 'required|integer|min:1|max:5',
+            'staff_name' => 'nullable|string|max:255',
         ];
     }
 }

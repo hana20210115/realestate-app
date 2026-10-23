@@ -21,10 +21,19 @@ class ReviewService
             abort(400, '最低1つは評価項目を選択してください。');
         }
 
+        // ★追加：担当者名の受け取り（入力されていない時は null になる）
+        $staffName = $data['staff_name'] ?? null;
+
         // scores の中身を展開してプロンプトにする
         $evaluationText = collect($scores)
             ->map(fn ($item) => "・{$item['name']}：{$item['score']}点")
             ->implode("\n");
+
+        // ★追加：担当者名が入力されている場合のみ、AIへの特別ルールを作成
+        $staffInstruction = '';
+        if (!empty($staffName)) {
+            $staffInstruction = "・担当スタッフの名前は「{$staffName}」さんです。必ずこの名前を口コミの本文に自然に織り込んでください（例：「{$staffName}さんに担当いただいたのですが〜」）。\n";
+        }
 
         // Gemini APIへ送るプロンプトの作成
         $prompt = <<<EOT
@@ -37,7 +46,7 @@ class ReviewService
 【絶対条件】
 ・口コミの本文のみを出力してください。「作成しました」「以下の通りです」などの前置き、挨拶、解説、AIとしての発言は【一切禁止】です。
 ・AIが書いたとバレないような、自然で人間らしい口調にすること。
-・指定された点数が低い項目がある場合は、角が立たないようにマイルドに指摘すること。
+{$staffInstruction}・指定された点数が低い項目がある場合は、角が立たないようにマイルドに指摘すること。
 ・スマホで読みやすい文字数（200文字程度）にすること。
 EOT;
 
