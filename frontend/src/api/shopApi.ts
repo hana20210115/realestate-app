@@ -4,7 +4,7 @@ import axios from 'axios';
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost/api';
 
 /**
-- 店舗情報（評価項目 review_elements を含む）を取得する関数
+- 1. 店舗情報（評価項目 review_elements を含む）を取得する関数
  */
 export const fetchShop = async (shopId: number) => {
     const response = await axios.get(`${BASE_URL}/shops/${shopId}`);
@@ -29,6 +29,7 @@ export const generateAIReview = async (data: {
     shop_id: number;
     lottery_result_id: number;
     scores: { name: string; score: number }[];
+    staff_name?: string; // ★ここを追加！(クエスチョンマークは「無くてもOK（任意）」という意味)
 }) => {
     const response = await axios.post(`${BASE_URL}/reviews/generate`, data);
     return response.data;

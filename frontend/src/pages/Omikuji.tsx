@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { saveLotteryResult } from '../api/shopApi';
 
@@ -22,10 +22,22 @@ const Omikuji = () => {
     const [isDrawing, setIsDrawing] = useState(false);
     const [flashImage, setFlashImage] = useState<string | null>(null);
     
+    // ★追加：裏側でこっそり結果を隠し持つ箱
+    const [hiddenResult, setHiddenResult] = useState<OmikujiResult | null>(null);
+    // ★追加：高速回転（パラパラ漫画）を止めるためのリモコン
+    const spinIntervalRef = useRef<number | null>(null);
+
     // DB関連のステート
     const [lotteryResultId, setLotteryResultId] = useState<number | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const [saveError, setSaveError] = useState<string | null>(null);
+
+    // 画面移動時などに回転を安全に止めるためのクリーンアップ
+    useEffect(() => {
+        return () => {
+            if (spinIntervalRef.current) window.clearInterval(spinIntervalRef.current);
+        };
+    }, []);
 
     const saveResult = async (finalResult: OmikujiResult) => {
         setIsSaving(true);
@@ -44,41 +56,41 @@ const Omikuji = () => {
         }
     };
 
-    const drawOmikuji = () => {
+    // ★修正：スタートボタンを押した時の処理
+    const startOmikuji = () => {
         setIsDrawing(true);
         setResult(null);
         setLotteryResultId(null);
         setSaveError(null);
 
-        let currentStep = 0;
-        const totalSteps = 24;
-        let delay = 50;
+        // 【手品のタネ】スタートした瞬間に、裏側でこっそり結果を決めておく！
+        const predeterminedResult = OMIKUJI_DATA[Math.floor(Math.random() * OMIKUJI_DATA.length)];
+        setHiddenResult(predeterminedResult);
 
-        const shuffle = () => {
-            currentStep++;
+        // 50ミリ秒ごとに画像を切り替えるパラパラ漫画（無限ループ）を開始
+        spinIntervalRef.current = window.setInterval(() => {
             const randomIndex = Math.floor(Math.random() * OMIKUJI_DATA.length);
             setFlashImage(OMIKUJI_DATA[randomIndex].imagePath);
+        }, 50);
+    };
 
-            if (currentStep < 10) delay = 50;
-            else if (currentStep < 16) delay += 15;
-            else if (currentStep < 20) delay += 35;
-            else delay += 75;
+    // ★追加：ストップボタンを押した時の処理
+    const stopOmikuji = () => {
+        // パラパラ漫画のタイマーを止める
+        if (spinIntervalRef.current) {
+            window.clearInterval(spinIntervalRef.current);
+            spinIntervalRef.current = null;
+        }
 
-            if (currentStep < totalSteps) {
-                setTimeout(shuffle, delay);
-            } else {
-                const finalResult =
-                    OMIKUJI_DATA[Math.floor(Math.random() * OMIKUJI_DATA.length)];
-                setResult(finalResult);
-                setFlashImage(null);
-                setIsDrawing(false);
+        // 隠し持っていた結果を画面にバーン！と出す
+        if (hiddenResult) {
+            setResult(hiddenResult);
+            setFlashImage(null);
+            setIsDrawing(false);
 
-                // 結果が出たら裏側でLaravelのDBに保存し、IDを受け取る
-                void saveResult(finalResult);
-            }
-        };
-
-        setTimeout(shuffle, delay);
+            // このタイミングでLaravelのDBに保存する
+            void saveResult(hiddenResult);
+        }
     };
 
     return (
@@ -114,7 +126,7 @@ const Omikuji = () => {
             {!isDrawing && !result && (
                 <div className="py-12">
                     <button
-                        onClick={drawOmikuji}
+                        onClick={startOmikuji}
                         className="bg-red-500 text-white font-bold py-5 px-12 rounded-full shadow-lg hover:bg-red-600 transition-all text-2xl hover:scale-105 active:scale-95 animate-bounce"
                     >
                         おみくじを引く！
@@ -127,13 +139,21 @@ const Omikuji = () => {
                     <p className="text-2xl font-black text-red-500 mb-4 tracking-widest animate-pulse">
                         シャッフル中...!!
                     </p>
-                    <div className="relative">
+                    <div className="relative mb-8">
                         <img
                             src={flashImage}
                             alt="シャッフル中"
                             className="w-64 h-64 object-contain filter blur-[1px] opacity-90 scale-95"
                         />
                     </div>
+                    
+                    {/* ★追加：ユーザーが押すダミーのストップボタン */}
+                    <button
+                        onClick={stopOmikuji}
+                        className="bg-yellow-400 text-red-700 font-black py-4 px-16 rounded-full shadow-[0_6px_0_#b45309] hover:bg-yellow-300 hover:shadow-[0_2px_0_#b45309] hover:translate-y-[4px] transition-all text-3xl"
+                    >
+                        ストップ！！
+                    </button>
                 </div>
             )}
 
@@ -184,7 +204,7 @@ const Omikuji = () => {
                                     結果を記録中...
                                 </span>
                             ) : (
-                                <span>口コミを投稿する！ </span>
+                                <span>アンケートに答える </span>
                             )}
                         </button>
                     </div>
